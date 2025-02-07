@@ -33,25 +33,30 @@ const saveCita = async (nombre, edad, fecha) => {
 const updateCalendar = async () => {
     const citasList = document.getElementById('citas-list');
     citasList.innerHTML = "";
-    citas = await fetchCitas(); // Obtener citas desde API
-    
+
+    // Solo obtener citas de la API si no hay citas agregadas manualmente
+    if (citas.length === 0) {
+        const apiCitas = await fetchCitas();
+        citas = [...apiCitas]; // Guardar las citas de la API
+    }
+
     citas.forEach((cita, index) => {
         const li = document.createElement('li');
         li.classList.add('cita-item');
         li.textContent = `${cita.nombre} - ${cita.fecha}`;
-        
+
         // Botón para editar la cita
         const editBtn = document.createElement('button');
         editBtn.textContent = "Editar";
         editBtn.classList.add('btn', 'btn-warning', 'btn-sm', 'ms-2');
         editBtn.addEventListener('click', () => editCita(index));
-        
+
         // Botón para cancelar la cita
         const cancelBtn = document.createElement('button');
         cancelBtn.textContent = "Cancelar";
         cancelBtn.classList.add('btn', 'btn-danger', 'btn-sm', 'ms-2');
         cancelBtn.addEventListener('click', () => cancelCita(index));
-        
+
         li.appendChild(editBtn);
         li.appendChild(cancelBtn);
         citasList.appendChild(li);
@@ -108,15 +113,16 @@ document.getElementById('submitBtn').addEventListener('click', async (e) => {
         Swal.fire('Error', 'Por favor, complete todos los campos.', 'error');
         return;
     }
-    
+
     try {
         const cita = await saveCita(nombre, edad, fecha);
-        citas.push(cita);
-        updateCalendar();
+        citas.push(cita); // Agregar la nueva cita al array local
+        updateCalendar(); // Actualizar la lista sin perder citas
     } catch (error) {
         console.error('Error:', error);
     }
 });
+
 
 document.addEventListener("DOMContentLoaded", updateCalendar);
 
