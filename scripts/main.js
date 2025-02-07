@@ -1,109 +1,122 @@
-function mostrarNombre (nombre){
-    alert("Hola " + nombre + " ¿Listo para tu cita?");
-}
+const DateTime = luxon.DateTime;
+let citas = [];
 
-let nombre = prompt("Ingrese su nombre")
-mostrarNombre(nombre)
-
-const reservations = JSON.parse(localStorage.getItem('reservations')) || []; // Recuperar reservas desde el almacenamiento local
-
-        // Evento para agregar una nueva reserva
-        document.getElementById('submitBtn').addEventListener('click', function(e) {
-            e.preventDefault();
-
-            const name = document.getElementById('name').value;
-            const email = document.getElementById('email').value;
-            const date = document.getElementById('date').value;
-            const time = document.getElementById('time').value;
-
-            if (!name || !email || !date || !time) {
-                alert('Por favor, completa todos los campos antes de reservar.');
-                return;
-            }
-
-            const newReservation = { name, email, date, time };
-            reservations.push(newReservation); // Agregar la nueva reserva al array
-            localStorage.setItem('reservations', JSON.stringify(reservations)); // Guardar reservas en almacenamiento local
-
-            alert(`Reserva confirmada para ${name} el ${date} a las ${time}.`);
-            updateCalendar(); // Actualizar el calendario dinámico
-
-            // Limpiar los campos del formulario
-            document.getElementById('name').value = '';
-            document.getElementById('email').value = '';
-            document.getElementById('date').value = '';
-            document.getElementById('time').value = '';
-        });
-
-        // Evento para mostrar el calendario al hacer clic en el enlace
-        document.getElementById('calendarLink').addEventListener('click', function(e) {
-            e.preventDefault();
-            const calendar = document.getElementById('calendar');
-            calendar.style.display = 'block';
-            updateCalendar(); // Mostrar reservas dinámicamente
-        });
-
-        // Función para actualizar el calendario con las reservas
-        function updateCalendar(filteredReservations = null) {
-            const reservationList = document.getElementById('reservationList');
-            reservationList.innerHTML = ''; // Limpiar la lista antes de actualizar
-
-            (filteredReservations || reservations).forEach((reservation, index) => {
-                const li = document.createElement('li');
-                li.textContent = `${reservation.name} - ${reservation.date} a las ${reservation.time}`;
-
-                // Botón para modificar la reserva
-                const modifyBtn = document.createElement('button');
-                modifyBtn.textContent = 'Modificar';
-                modifyBtn.addEventListener('click', function() {
-                    const newDate = prompt('Introduce la nueva fecha (YYYY-MM-DD):', reservation.date);
-                    const newTime = prompt('Introduce la nueva hora (HH:MM):', reservation.time);
-
-                    if (newDate && newTime) {
-                        reservations[index].date = newDate;
-                        reservations[index].time = newTime;
-                        localStorage.setItem('reservations', JSON.stringify(reservations));
-                        updateCalendar();
-                        alert('Reserva modificada con éxito.');
-                    } else {
-                        alert('No se realizaron cambios.');
-                    }
-                });
-
-                // Botón para eliminar la reserva
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = 'Anular';
-                deleteBtn.addEventListener('click', function() {
-                    if (confirm('¿Estás seguro de que deseas anular esta reserva?')) {
-                        reservations.splice(index, 1);
-                        localStorage.setItem('reservations', JSON.stringify(reservations));
-                        updateCalendar();
-                        alert('Reserva anulada con éxito.');
-                    }
-                });
-
-                li.appendChild(modifyBtn);
-                li.appendChild(deleteBtn);
-                reservationList.appendChild(li);
-            });
+const fetchCitas = async () => {
+    try {
+        const response = await fetch('https://jsonplaceholder.typicode.com/users'); // API simulada con nombres reales
+        if (!response.ok) {
+            throw new Error('Error al obtener las citas');
         }
+        const data = await response.json();
+        return data.slice(0, 3).map(item => ({ nombre: `${item.name}`, fecha: new Date().toISOString().split('T')[0] }));
+    } catch (error) {
+        console.error('Error:', error);
+        return [];
+    }
+};
 
-        // Evento para buscar y filtrar reservas
-        document.getElementById('filterBtn').addEventListener('click', function() {
-            const searchValue = document.getElementById('search').value.toLowerCase();
-
-            const filteredReservations = reservations.filter(reservation =>
-                reservation.name.toLowerCase().includes(searchValue)
-            );
-
-            if (filteredReservations.length === 0) {
-                alert('No se encontraron reservas con ese nombre.');
+const saveCita = async (nombre, edad, fecha) => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            const errorMessage = document.getElementById('error-message');
+            if (edad < 18) {
+                errorMessage.style.display = 'block';
+                reject("Debe ser mayor de edad para reservar una cita.");
+            } else {
+                errorMessage.style.display = 'none';
+                resolve({ nombre, edad, fecha });
             }
+        }, 1000);
+    });
+};
 
-            updateCalendar(filteredReservations);
-        });
+const updateCalendar = async () => {
+    const citasList = document.getElementById('citas-list');
+    citasList.innerHTML = "";
+    citas = await fetchCitas(); // Obtener citas desde API
+    
+    citas.forEach((cita, index) => {
+        const li = document.createElement('li');
+        li.classList.add('cita-item');
+        li.textContent = `${cita.nombre} - ${cita.fecha}`;
+        
+        // Botón para editar la cita
+        const editBtn = document.createElement('button');
+        editBtn.textContent = "Editar";
+        editBtn.classList.add('btn', 'btn-warning', 'btn-sm', 'ms-2');
+        editBtn.addEventListener('click', () => editCita(index));
+        
+        // Botón para cancelar la cita
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = "Cancelar";
+        cancelBtn.classList.add('btn', 'btn-danger', 'btn-sm', 'ms-2');
+        cancelBtn.addEventListener('click', () => cancelCita(index));
+        
+        li.appendChild(editBtn);
+        li.appendChild(cancelBtn);
+        citasList.appendChild(li);
+    });
+};
 
-        // Cargar reservas al iniciar
-        document.addEventListener('DOMContentLoaded', function() {
+const editCita = (index) => {
+    const cita = citas[index];
+    Swal.fire({
+        title: "Editar Cita",
+        html:
+            `<input id='edit-nombre' class='swal2-input' value='${cita.nombre}'>`,
+        showCancelButton: true,
+        confirmButtonText: "Guardar",
+        cancelButtonText: "Cancelar",
+        preConfirm: () => {
+            const nuevoNombre = document.getElementById('edit-nombre').value;
+            if (!nuevoNombre) {
+                Swal.showValidationMessage("El campo no puede estar vacío");
+                return false;
+            }
+            citas[index].nombre = nuevoNombre;
             updateCalendar();
-        });
+        }
+    });
+};
+
+const cancelCita = (index) => {
+    Swal.fire({
+        title: "¿Estás seguro?",
+        text: "Esta acción eliminará la cita de forma permanente.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#3085d6",
+        confirmButtonText: "Sí, cancelar cita",
+        cancelButtonText: "No, mantener cita"
+    }).then((result) => {
+        if (result.isConfirmed) {
+            citas.splice(index, 1);
+            updateCalendar();
+            Swal.fire("Cita cancelada", "La cita ha sido eliminada con éxito.", "success");
+        }
+    });
+};
+
+document.getElementById('submitBtn').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const nombre = document.getElementById('nombre').value;
+    const edad = parseInt(document.getElementById('edad').value);
+    const fecha = document.getElementById('fecha').value;
+
+    if (!nombre || !edad || !fecha) {
+        Swal.fire('Error', 'Por favor, complete todos los campos.', 'error');
+        return;
+    }
+    
+    try {
+        const cita = await saveCita(nombre, edad, fecha);
+        citas.push(cita);
+        updateCalendar();
+    } catch (error) {
+        console.error('Error:', error);
+    }
+});
+
+document.addEventListener("DOMContentLoaded", updateCalendar);
+
