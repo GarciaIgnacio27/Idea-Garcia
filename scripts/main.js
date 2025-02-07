@@ -1,14 +1,22 @@
 const DateTime = luxon.DateTime;
-let citas = [];
+let citas = JSON.parse(localStorage.getItem('citas')) || []; // Cargar desde localStorage
 
 const fetchCitas = async () => {
     try {
-        const response = await fetch('https://jsonplaceholder.typicode.com/users'); // API simulada con nombres reales
-        if (!response.ok) {
-            throw new Error('Error al obtener las citas');
+        if (citas.length === 0) { // Solo cargar citas de la API si no hay citas guardadas
+            const response = await fetch('https://jsonplaceholder.typicode.com/users');
+            if (!response.ok) throw new Error('Error al obtener las citas');
+
+            const data = await response.json();
+            const apiCitas = data.slice(0, 3).map(item => ({
+                nombre: item.name,
+                fecha: new Date().toISOString().split('T')[0]
+            }));
+
+            citas = [...citas, ...apiCitas]; // Mantener reservas manuales + API
+            localStorage.setItem('citas', JSON.stringify(citas)); // Guardar en localStorage
         }
-        const data = await response.json();
-        return data.slice(0, 3).map(item => ({ nombre: `${item.name}`, fecha: new Date().toISOString().split('T')[0] }));
+        return citas;
     } catch (error) {
         console.error('Error:', error);
         return [];
@@ -34,11 +42,7 @@ const updateCalendar = async () => {
     const citasList = document.getElementById('citas-list');
     citasList.innerHTML = "";
 
-    // Solo obtener citas de la API si no hay citas agregadas manualmente
-    if (citas.length === 0) {
-        const apiCitas = await fetchCitas();
-        citas = [...apiCitas]; // Guardar las citas de la API
-    }
+    citas = await fetchCitas(); // Obtener citas sin sobrescribir reservas manuales
 
     citas.forEach((cita, index) => {
         const li = document.createElement('li');
@@ -67,8 +71,7 @@ const editCita = (index) => {
     const cita = citas[index];
     Swal.fire({
         title: "Editar Cita",
-        html:
-            `<input id='edit-nombre' class='swal2-input' value='${cita.nombre}'>`,
+        html: `<input id='edit-nombre' class='swal2-input' value='${cita.nombre}'>`,
         showCancelButton: true,
         confirmButtonText: "Guardar",
         cancelButtonText: "Cancelar",
@@ -79,6 +82,7 @@ const editCita = (index) => {
                 return false;
             }
             citas[index].nombre = nuevoNombre;
+            localStorage.setItem('citas', JSON.stringify(citas)); // Guardar cambios
             updateCalendar();
         }
     });
@@ -97,6 +101,7 @@ const cancelCita = (index) => {
     }).then((result) => {
         if (result.isConfirmed) {
             citas.splice(index, 1);
+            localStorage.setItem('citas', JSON.stringify(citas)); // Guardar en localStorage
             updateCalendar();
             Swal.fire("Cita cancelada", "La cita ha sido eliminada con éxito.", "success");
         }
@@ -116,13 +121,14 @@ document.getElementById('submitBtn').addEventListener('click', async (e) => {
 
     try {
         const cita = await saveCita(nombre, edad, fecha);
-        citas.push(cita); // Agregar la nueva cita al array local
-        updateCalendar(); // Actualizar la lista sin perder citas
+        citas.push(cita);
+        localStorage.setItem('citas', JSON.stringify(citas)); // Guardar nueva cita en localStorage
+        updateCalendar();
     } catch (error) {
         console.error('Error:', error);
     }
 });
 
-
 document.addEventListener("DOMContentLoaded", updateCalendar);
+
 
